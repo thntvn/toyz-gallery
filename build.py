@@ -28,14 +28,27 @@ NOT_TAMQUOC = re.compile(r"tần thủy hoàng|thần tài|god of wealth|hua ron
                          r"triển chiêu|công tôn sách|đại kiều|tiểu kiều|hwit|phoeleo|spetsnaz|"
                          r"hongkong police|u\.?s army|lynx|dead oder", re.I)
 
-FF = re.compile(r"final fantasy|\bffvii\b|\bff7\b|\bff7r\b|\bff8\b|\bffviii\b|\bffix\b|\bffx\b|\bffxv\b|"
-                r"\bffxvi\b|cloud strife|sephiroth|tifa|aerith|aeris|zack fair|squall|rinoa|noctis|"
-                r"tidus|\byuna\b|\bvivi\b|chocobo|moogle|cactuar|tonberry|barret|vincent valentine|"
-                r"red xiii|kefka|advent children|crisis core|dissidia|play arts|bring arts|static arts|"
-                r"square enix", re.I)
-# dòng Square Enix KHÁC (Kingdom Hearts/Nier/Marvel…) — không tính là Final Fantasy
-NOT_FF = re.compile(r"kingdom hearts|nier|automata|marvel|batman|bat man|dragon quest|star wars|halo|doom|"
-                    r"god of war|horizon|tomb raider|black widow|iron man|spider|variants? play arts|thanos", re.I)
+FF = re.compile(
+    # tên game / thuật ngữ
+    r"final fantasy|\bff\s?(?:vii|7r?|viii|8|ix|9|x\b|10|x-2|xv|15|xvi|16|xiv|14|vi|6)\b|ffvii|ff7r|"
+    r"advent children|crisis core|dissidia|\bmidgar\b|\bshinra\b|\bjenova\b|buster sword|\bmateria\b|"
+    r"\bavalanche\b|soldier 1st|1st class soldier|"
+    # hãng / dòng figure của Square Enix
+    r"gametoys|game ?toys|square enix|play arts|bring arts|static arts|"
+    # nhân vật (bắt buộc ranh giới từ để 'material' không lọt vào 'materia')
+    r"cloud strife|\bcloud\b|sephiroth|tifa|aerith|aeris|zack fair|\bzack\b|\bsquall\b|rinoa|\bzidane\b|"
+    r"\bvivi\b|\bkuja\b|\btidus\b|\byuna\b|auron|\brikku\b|\bjecht\b|noctis|\bardyn\b|gladiolus|"
+    r"\bignis\b|prompto|lunafreya|\bclive\b|y'?shtola|\bkefka\b|\bterra branford\b|red xiii|cait sith|"
+    r"vincent valentine|\byuffie\b|\bbarret\b|\brufus\b|\bseifer\b|\bquistis\b|\bangeal\b|"
+    r"\bkadaj\b", re.I)
+# dòng KHÁC không tính là Final Fantasy (kể cả brand trùng chữ)
+NOT_FF = re.compile(
+    r"kingdom hearts|\bnier\b|automata|dragon quest|star wars|marvel|batman|bat man|resident evil|"
+    r"\bjill valentine\b|iron man|spider|deadpool|thanos|black widow|god of war|horizon|tomb raider|"
+    r"halo\b|\bdoom\b|mortal kombat|street fighter|tekken|devil may cry|\bdante\b|metal gear|"
+    r"attack on titan|jujutsu|demon slayer|one piece|naruto|dragon ball|\bevangelion\b|neon genesis|"
+    r"cloud peak|rain cloud|date masamune|masamune|zack[- ]?snyder|honkai|star rail|genshin|zenless|"
+    r"azur lane|\bnikke\b|\bkafka\b", re.I)
 
 # Mỗi dòng sản phẩm = 1 trang riêng: (regex nhận, regex loại)
 LINES: dict[str, tuple[re.Pattern, re.Pattern]] = {
@@ -254,7 +267,13 @@ def main() -> int:
     print(f"# {len(posts)} post sau lọc ({a.filter})")
 
     products, seen_titles = [], set()
+    list_posts = []
     for p in posts:
+        txt = norm(p.get("message"))
+        if len(PRICE_LINE.findall(txt)) >= 4:      # bài bảng giá nhiều sản phẩm, không phải 1 sản phẩm
+            first = next((l.strip() for l in txt.splitlines() if l.strip()), "")[:60]
+            list_posts.append((str(p.get("inserted_at"))[:10], first))
+            continue
         item = parse_post(p)
         if not item:
             continue
@@ -289,6 +308,10 @@ def main() -> int:
 
     (out / "data" / "products.json").write_text(json.dumps(products, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"\n# {len(products)} sản phẩm → {out/'data'/'products.json'}")
+    if list_posts:
+        print(f"# bỏ {len(list_posts)} bài bảng giá nhiều sản phẩm (không phải 1 sản phẩm):")
+        for d, t in list_posts[:12]:
+            print(f"    - {d} · {t}")
     return 0
 
 
