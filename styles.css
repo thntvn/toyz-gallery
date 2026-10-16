@@ -76,9 +76,10 @@ img{display:block}
 .facts{display:grid;grid-template-columns:1fr;gap:7px}
 .fact{display:flex;gap:10px;font-size:13.5px;border-bottom:1px dashed var(--line);padding-bottom:6px}
 .fact b{color:var(--muted);font-weight:600;min-width:112px}
-.desc{white-space:pre-wrap;font-size:13.5px;line-height:1.6;color:#cfd7e6;background:var(--panel2);
+.desc{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13.5px;line-height:1.6;color:#cfd7e6;background:var(--panel2);
   border:1px solid var(--line);border-radius:12px;padding:12px 14px;max-height:230px;overflow:auto}
-.meta{display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-size:12.5px}
+.meta{display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-size:12.5px;flex-wrap:wrap;min-width:0}
+.meta a{overflow-wrap:anywhere}
 
 /* ---------- lightbox ---------- */
 .lightbox{position:fixed;inset:0;z-index:90;background:rgba(4,6,9,.97);display:flex;align-items:center;justify-content:center;flex-direction:column}
@@ -98,7 +99,19 @@ img{display:block}
 .lb-strip img.on{border-color:var(--accent);opacity:1}
 
 @media (max-width:880px){
-  .modal-body{grid-template-columns:1fr}
+  /* minmax(0,1fr) chứ không phải 1fr: 1fr = minmax(auto,1fr) nên cột bị đẩy theo
+     min-content của chuỗi dài không xuống dòng (URL trong bài đăng) → popup tràn ngang */
+  .modal-body{grid-template-columns:minmax(0,1fr)}
   #search{min-width:160px}
   .gallery{padding:14px;gap:12px;grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
+}
+@media (max-width:560px){
+  .modal{padding:10px}
+  .modal-body{padding:14px;gap:14px}
+  .gallery{padding:10px;gap:10px;grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+  .info h2{font-size:18px}
+  .fact b{min-width:96px}
+  .desc{max-height:180px}
+  #search{min-width:120px;padding:8px 12px}
+  .topbar{padding:14px 12px}
 }
