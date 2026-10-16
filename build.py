@@ -28,6 +28,37 @@ NOT_TAMQUOC = re.compile(r"tần thủy hoàng|thần tài|god of wealth|hua ron
                          r"triển chiêu|công tôn sách|đại kiều|tiểu kiều|hwit|phoeleo|spetsnaz|"
                          r"hongkong police|u\.?s army|lynx|dead oder", re.I)
 
+FF = re.compile(r"final fantasy|\bffvii\b|\bff7\b|\bff7r\b|\bff8\b|\bffviii\b|\bffix\b|\bffx\b|\bffxv\b|"
+                r"\bffxvi\b|cloud strife|sephiroth|tifa|aerith|aeris|zack fair|squall|rinoa|noctis|"
+                r"tidus|\byuna\b|\bvivi\b|chocobo|moogle|cactuar|tonberry|barret|vincent valentine|"
+                r"red xiii|kefka|advent children|crisis core|dissidia|play arts|bring arts|static arts|"
+                r"square enix", re.I)
+# dòng Square Enix KHÁC (Kingdom Hearts/Nier/Marvel…) — không tính là Final Fantasy
+NOT_FF = re.compile(r"kingdom hearts|nier|automata|marvel|batman|bat man|dragon quest|star wars|halo|doom|"
+                    r"god of war|horizon|tomb raider|black widow|iron man|spider|variants? play arts|thanos", re.I)
+
+# Mỗi dòng sản phẩm = 1 trang riêng: (regex nhận, regex loại)
+LINES: dict[str, tuple[re.Pattern, re.Pattern]] = {
+    "tamquoc": (TAMQUOC, NOT_TAMQUOC),
+    "finalfantasy": (FF, NOT_FF),
+}
+# tiêu đề bài đăng kiểu "thông báo" không phải tên sản phẩm → phải tìm dòng khác làm tiêu đề
+BAD_TITLE = re.compile(r"^\W*(giới hạn|giá ưu đãi|sợ gì|hàng về|hàng có sẵn|hàng hiếm|new arrival|new\b|sale|"
+                       r"ưu đãi|khuyến mãi|hot|tin vui|nhận order|order now|lại có duyên|một trong số|"
+                       r"đã rất lâu|deal\b|cực (?:hot|phẩm)|số lượng 1)", re.I)
+NAME_HINT = re.compile(r"studio|\b1[:/]\d\b|action figure|statue|tượng|scale|fz\d|tifa|sephiroth|cloud|zack|"
+                       r"aerith|red xiii|chocobo", re.I)
+# dòng thông số, không phải tên sản phẩm
+LABEL_LINE = re.compile(r"^\W*(hãng s[xy]|nhà sản xuất|thương hiệu|chất liệu|kích thước|tỉ lệ|giá|mã sản phẩm|"
+                        r"code|size|material|po close|hạn chốt|deposit|cọc)", re.I)
+
+
+def clean_title(t: str) -> str:
+    """Bỏ ký tự trang trí/gạch ở hai đầu dòng tiêu đề."""
+    t = re.sub(r"^[\s\-–—•*|_🌟🔥〰️❗️!✅]+", "", str(t or ""))
+    t = re.sub(r"[\s\-–—•*|_]+$", "", t)
+    return re.sub(r"\s{2,}", " ", t).strip()
+
 def norm(text: str) -> str:
     """Chuẩn hoá chữ 'fancy' (𝗣𝗥𝗘-𝗢𝗥𝗗𝗘𝗥) về chữ thường đọc được, giữ dấu tiếng Việt."""
     return unicodedata.normalize("NFKC", str(text or "")).replace("\u00a0", " ")
@@ -39,16 +70,25 @@ PRICE_LINE = re.compile(r"gi[aá]\s*(?:\(price\))?\s*[:：]\s*([^\n]+)", re.I)
 
 
 def to_vnd(raw: str) -> tuple[str, int]:
-    """'6.100k' -> ('6.100.000đ', 6100000); '615(ck)/nvat' -> ('615.000đ', 615000)."""
-    m = re.search(r"([\d][\d.,]*)", raw or "")
+    """'6.100k' -> ('6.100.000đ', 6100000); '615(ck)/nvat' -> ('615.000đ', 615000);
+    '40 tr' -> ('40.000.000đ', 40000000); giá mơ hồ kiểu '6X tr' -> giữ nguyên chữ, value 0 (không đoán)."""
+    s = str(raw or "").replace("\u00a0", " ")
+    m = re.search(r"(\d[\d.,]*)\s*(k|tr|triệu|m)?", s, re.I)
     if not m:
         return "", 0
     digits = re.sub(r"\D", "", m.group(1))
     if not digits:
         return "", 0
+    unit = (m.group(2) or "").lower()
     val = int(digits)
-    if val < 100_000:                 # shop ghi theo đơn vị 'k'
-        val *= 1000
+    if unit == "k":
+        val *= 1_000
+    elif unit in ("tr", "triệu", "m"):
+        val *= 1_000_000
+    elif val < 100_000:               # shop ghi theo đơn vị 'k'
+        val *= 1_000
+    if re.search(r"\d\s*[xX]\b", s) or val < 10_000:   # '6X tr', 'giá liên hệ' → không đoán số
+        return s.strip()[:40], 0
     return f"{val:,}đ".replace(",", "."), val
 
 
@@ -61,12 +101,18 @@ def parse_versions(text: str) -> list[dict]:
             continue
         if PRICE_LINE.search(line):
             raw = PRICE_LINE.search(line).group(1)
-            price_txt, price_val = to_vnd(raw)
+            price_part, _, dep_part = raw.partition(" - ")
+            price_txt, price_val = to_vnd(price_part)
             dep = ""
-            dm = re.search(r"c[oọ]c\s*(?:\(deposit\))?\s*[:：]\s*([^\-\n]*)", line, re.I)
+            dm = (re.search(r"c[oọ]c\s*(?:\s*\(deposit\))?\s*[:：]?\s*(.*)", dep_part, re.I)
+                  or re.search(r"c[oọ]c\s*(?:\s*\(deposit\))?\s*[:：]\s*(.*)", raw, re.I))
             if dm:
-                d_txt, _ = to_vnd(dm.group(1))
-                dep = d_txt or dm.group(1).strip()
+                dtxt = dm.group(1).strip(" .-")
+                if "%" in dtxt:                      # cọc theo % → giữ nguyên chữ, không đoán số
+                    dep = dtxt[:20]
+                else:
+                    t, _ = to_vnd(dtxt)
+                    dep = t or dtxt[:20]
             out.append({"label": label, "price": price_txt, "price_value": price_val, "deposit": dep})
             continue
         if ":" not in line and len(line) < 70 and VER_RE.search(line):
@@ -82,20 +128,12 @@ def pick(label_regex: str, text: str) -> str:
 
 
 def parse_price(text: str) -> tuple[str, int]:
-    """'Giá (Price): 3.580' -> ('3.580.000đ', 3580000). Đơn vị shop ghi là 'k'."""
+    """'Giá (Price): 3.580' -> ('3.580.000đ', 3580000). Đơn vị shop ghi là 'k' (hoặc 'tr' = triệu)."""
     raw = pick(r"gi[aá]", text)
     if not raw:
         return "", 0
-    m = re.search(r"([\d][\d.,]*)", raw)
-    if not m:
-        return raw[:40], 0
-    digits = re.sub(r"\D", "", m.group(1))
-    if not digits:
-        return raw[:40], 0
-    val = int(digits)
-    if val < 100_000:
-        val *= 1000
-    return f"{val:,}đ".replace(",", "."), val
+    t, v = to_vnd(raw)
+    return (t or raw.strip()[:40], v)
 
 
 def parse_post(p: dict) -> dict | None:
@@ -108,15 +146,16 @@ def parse_post(p: dict) -> dict | None:
     if not images:
         return None
 
-    # tiêu đề = dòng đầu, bỏ nhãn [PRE-ORDER]
-    first = ""
-    for line in text.splitlines():
-        line = line.strip()
-        if line:
-            first = line
-            break
+    # tiêu đề = dòng đầu, bỏ nhãn [PRE-ORDER]; bài kiểu thông báo thì lấy dòng có tên sản phẩm
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    first = lines[0] if lines else ""
+    if BAD_TITLE.search(first):
+        cand = next((ln for ln in lines[1:12]
+                     if NAME_HINT.search(ln) and not LABEL_LINE.search(ln) and len(ln) <= 110), "")
+        if cand:
+            first = cand
     title = re.sub(r"^\[\s*(PRE-?ORDER|ĐẶT TRƯỚC)\s*\]\s*", "", first, flags=re.I).strip()
-    title = re.sub(r"\s{2,}", " ", title)[:120]
+    title = clean_title(re.sub(r"\s{2,}", " ", title))[:120]
     subtitle = " · ".join(x for x in (pick(r"mã sản phẩm", text) or pick(r"sku", text),) if x)
 
     versions = parse_versions(text)
@@ -191,8 +230,11 @@ def download(url: str, dest: Path, max_w: int = 1400, quality: int = 85) -> bool
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--filter", default="tamquoc", choices=["tamquoc", "all"])
+    ap.add_argument("--filter", default="tamquoc", choices=sorted(LINES) + ["all"],
+                    help="dòng sản phẩm (mỗi dòng = 1 trang riêng)")
     ap.add_argument("--limit", type=int, default=60)
+    ap.add_argument("--max-img", type=int, default=0, help="giới hạn số ảnh mỗi sản phẩm (0 = không giới hạn)")
+    ap.add_argument("--skip", default="", help="danh sách post_id bỏ qua, cách nhau dấu phẩy")
     ap.add_argument("--out", default=str(Path.home() / "toyz-gallery"))
     a = ap.parse_args()
     out = Path(a.out)
@@ -202,9 +244,13 @@ def main() -> int:
 
     posts = json.loads(CACHE.read_text(encoding="utf-8"))
     posts.sort(key=lambda p: p.get("inserted_at") or "", reverse=True)
-    if a.filter == "tamquoc":
-        posts = [p for p in posts if TAMQUOC.search(norm(p.get("message")))
-                 and not NOT_TAMQUOC.search(norm(p.get("message"))[:600])]
+    if a.filter != "all":
+        inc, exc = LINES[a.filter]
+        posts = [p for p in posts if inc.search(norm(p.get("message")))
+                 and not exc.search(norm(p.get("message"))[:600])]
+    skip = {s.strip() for s in a.skip.split(",") if s.strip()}
+    if skip:
+        posts = [p for p in posts if str(p.get("id")) not in skip]
     print(f"# {len(posts)} post sau lọc ({a.filter})")
 
     products, seen_titles = [], set()
@@ -220,8 +266,9 @@ def main() -> int:
         tfolder = out / "thumbs" / re.sub(r"\W+", "_", item["post_id"])
         folder.mkdir(parents=True, exist_ok=True)
         tfolder.mkdir(parents=True, exist_ok=True)
+        imgs = item["images"][:a.max_img] if a.max_img else item["images"]
         local, local_t = [], []
-        for i, url in enumerate(item["images"]):
+        for i, url in enumerate(imgs):
             dest = folder / f"{i:02d}.jpg"
             tdest = tfolder / f"{i:02d}.jpg"
             if not dest.exists():

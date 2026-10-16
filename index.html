@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TOYz — Sản phẩm</title>
+<title>TOYz — Chọn dòng sản phẩm</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23ff6a2b'/%3E%3Ctext x='32' y='43' font-size='34' text-anchor='middle' font-family='Arial' font-weight='bold' fill='%230d0f14'%3ET%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -11,69 +11,33 @@
 <header class="topbar">
   <div class="brand">
     <span class="logo">TOYz</span>
-    <span class="tagline">Premium Collectibles — gallery sản phẩm</span>
-  </div>
-  <div class="tools">
-    <input id="search" type="search" placeholder="Tìm sản phẩm, SKU, giá…" aria-label="Tìm sản phẩm">
-    <span id="count" class="count"></span>
+    <span class="tagline">Premium Collectibles — chọn dòng sản phẩm</span>
   </div>
 </header>
 
 <main>
-  <div id="gallery" class="gallery" aria-live="polite"></div>
-  <p id="empty" class="empty" hidden>Không có sản phẩm nào khớp.</p>
+  <div class="lines">
+  <a class="line-card" href="tam-quoc/">
+    <div class="lc-thumb"><img src="tam-quoc/thumbs/1546899045414742_1721661406636555/00.jpg" alt="" loading="lazy"></div>
+    <div class="lc-body">
+      <h3>Tam Quốc</h3>
+      <p>Quan Vũ · Lữ Bố · Triệu Vân · Trương Phi · Lưu Bị — 303Toys, JSToys, FZ Art, FYJ, Infinity…</p>
+      <div class="lc-meta">16 sản phẩm · mới nhất 13/10/2026 →</div>
+    </div>
+  </a>
+  <a class="line-card" href="final-fantasy/">
+    <div class="lc-thumb"><img src="final-fantasy/thumbs/1546899045414742_1681561653979864/00.jpg" alt="" loading="lazy"></div>
+    <div class="lc-body">
+      <h3>Final Fantasy</h3>
+      <p>Tifa · Cloud · Sephiroth · Zack · Red XIII — Square Enix, Play Arts, studio nội địa…</p>
+      <div class="lc-meta">15 sản phẩm · mới nhất 05/09/2026 →</div>
+    </div>
+  </a>
+  </div>
 </main>
 
 <footer class="footer">
   <span>Nguồn: bài đăng fanpage TOYz (Pancake Page API) — ảnh tải về máy, không hotlink.</span>
 </footer>
-
-<!-- POPUP chi tiết sản phẩm -->
-<div id="modal" class="modal" hidden>
-  <div class="modal-backdrop" data-close></div>
-  <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="m-title">
-    <button class="x" data-close aria-label="Đóng">×</button>
-    <div class="modal-body">
-      <div class="slider">
-        <div class="stage" id="m-stage" title="Bấm vào ảnh để mở lightbox">
-          <img id="m-img" src="" alt="">
-          <button class="nav prev" id="m-prev" aria-label="Ảnh trước">‹</button>
-          <button class="nav next" id="m-next" aria-label="Ảnh sau">›</button>
-          <span class="counter" id="m-counter"></span>
-          <span class="zoom-hint">Bấm ảnh để xem lớn</span>
-        </div>
-        <div class="thumbs" id="m-thumbs"></div>
-      </div>
-      <div class="info">
-        <span class="badge" id="m-badge">PRE-ORDER</span>
-        <h2 id="m-title">—</h2>
-        <div class="facts" id="m-facts"></div>
-        <div class="desc" id="m-desc"></div>
-        <div class="meta">
-          <a id="m-link" href="#" target="_blank" rel="noopener">Xem bài đăng gốc</a>
-          <span id="m-date"></span>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- LIGHTBOX -->
-<div id="lightbox" class="lightbox" hidden>
-  <div class="lb-tools">
-    <button id="lb-out" title="Thu nhỏ (−)">−</button>
-    <button id="lb-in" title="Phóng to (+)">+</button>
-    <button id="lb-reset" title="Về mặc định (0)">1:1</button>
-    <button id="lb-full" title="Toàn màn hình (F)">⛶</button>
-    <button id="lb-close" title="Đóng (Esc)">×</button>
-  </div>
-  <button class="nav prev" id="lb-prev" aria-label="Ảnh trước">‹</button>
-  <button class="nav next" id="lb-next" aria-label="Ảnh sau">›</button>
-  <div class="lb-stage" id="lb-stage"><img id="lb-img" src="" alt=""></div>
-  <div class="lb-caption"><span id="lb-counter"></span><span id="lb-title"></span></div>
-  <div class="lb-strip" id="lb-strip"></div>
-</div>
-
-<script src="app.js"></script>
 </body>
 </html>
